@@ -5,3 +5,5 @@ bin
 obj
 .vscode
 packages
+*.obj
+*.exe

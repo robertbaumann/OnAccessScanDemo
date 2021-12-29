@@ -18,9 +18,41 @@ namespace OnAccessScanDemo
          * Demonstrates On-Access scanning from McAfee by round-tripping the EICAR file to disk
          * https://service.mcafee.com/webcenter/portal/oracle/webcenter/page/scopedMD/s55728c97_466d_4ddb_952d_05484ea932c6/Page29.jspx?wc.contextURL=%2Fspaces%2Fcp&articleId=TS100829&_afrLoop=330580533484445&leftWidth=0%25&showFooter=false&showHeader=false&rightWidth=0%25&centerWidth=100%25#!%40%40%3FshowFooter%3Dfalse%26_afrLoop%3D330580533484445%26articleId%3DTS100829%26leftWidth%3D0%2525%26showHeader%3Dfalse%26wc.contextURL%3D%252Fspaces%252Fcp%26rightWidth%3D0%2525%26centerWidth%3D100%2525%26_adf.ctrl-state%3Dolsadloaf_9
          * */
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
             Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            if(File.Exists("ReadOneByteUtility.exe"))
+            {
+                Console.WriteLine($"--- Writing innocent file with separate process and no wait ---");
+                var newInnocentFileName = WriteInnocentFile().GetAwaiter().GetResult();
+                Process innocentUtilityProcess = System.Diagnostics.Process.Start("ReadOneByteUtility.exe", newInnocentFileName);
+                innocentUtilityProcess.WaitForExit();
+                int exitCode = innocentUtilityProcess.ExitCode;
+                sw.Stop();
+                WriteTestResult(exitCode == 0, "Check innocent file with separate process");
+                Console.WriteLine($"Time taken: {sw.ElapsedMilliseconds}ms");
+                Console.WriteLine();
+
+                sw.Start();
+                Console.WriteLine($"--- Writing small EICAR file with separate process and no wait ---");
+                var newEicarFileName = WriteEicarFile(".com").GetAwaiter().GetResult();
+                Process utilityProcess = System.Diagnostics.Process.Start("ReadOneByteUtility.exe", newEicarFileName);
+                utilityProcess.WaitForExit();
+                exitCode = utilityProcess.ExitCode;
+                sw.Stop();
+                WriteTestResult(exitCode != 0, "Detect in small EICAR file with separate process");
+                Console.WriteLine($"Time taken: {sw.ElapsedMilliseconds}ms");
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("ReadOneByteUtility.exe missing, skipping separate process tests. Review Readme.md for information on how to build.");
+                Console.WriteLine();
+            }
+
+            sw.Reset();
             sw.Start();
             Console.WriteLine($"--- Writing small EICAR file ---");
             var eicarFileName = WriteEicarFile(".com").GetAwaiter().GetResult();
@@ -28,7 +60,7 @@ namespace OnAccessScanDemo
             System.Threading.Thread.Sleep(timeToWaitMs);
             var isEicarVirusDetected = IsVirusDetectedOrRemoved(eicarFileName).GetAwaiter().GetResult();
             sw.Stop();
-            WriteTestResult(isEicarVirusDetected, "Detect virus detected in small EICAR file");
+            WriteTestResult(isEicarVirusDetected, "Detect virus in small EICAR file");
             Console.WriteLine($"Time taken: {sw.ElapsedMilliseconds}ms");
             Console.WriteLine();
 
@@ -50,7 +82,6 @@ namespace OnAccessScanDemo
             System.Threading.Thread.Sleep(iniTimeToWaitMs);
             var isInnocentVirusDetected = IsVirusDetectedOrRemoved(innocentFileName).GetAwaiter().GetResult();
             WriteTestResult(!isInnocentVirusDetected, "Read innocent file");
-
             Console.WriteLine();
 
             Console.WriteLine($"--- Writing small zip file with embedded EICAR ---");
@@ -58,7 +89,7 @@ namespace OnAccessScanDemo
             Console.WriteLine($"Sleeping {timeToWaitMs}ms");
             System.Threading.Thread.Sleep(timeToWaitMs);
             var isZippedEicarDetected = IsVirusDetectedOrRemovedInZip(zippedEicarFile).GetAwaiter().GetResult();
-            WriteTestResult(isZippedEicarDetected, "Detect virus in small zip file");
+            WriteTestResult(isZippedEicarDetected, "Detect virus in small zip file (requires McAfee setting)");
 
             Console.WriteLine();
 
@@ -67,7 +98,7 @@ namespace OnAccessScanDemo
             Console.WriteLine($"Sleeping {timeToWaitMs}ms");
             System.Threading.Thread.Sleep(timeToWaitMs); 
             var isLargeZippedEicarDetected = IsVirusDetectedOrRemovedInZip(largeZippedEicarFile).GetAwaiter().GetResult();
-            WriteTestResult(isLargeZippedEicarDetected, "Detect virus in large zip file");
+            WriteTestResult(isLargeZippedEicarDetected, "Detect virus in large zip file (requires McAfee setting)");
 
 
             if (cleanupTempFiles)
@@ -76,6 +107,7 @@ namespace OnAccessScanDemo
                 DeleteFile(innocentFileName);
                 DeleteFile(zippedEicarFile);
             }
+            return 0;
         }
 
         private static void WriteTestResult(bool isSuccess, string testName)
