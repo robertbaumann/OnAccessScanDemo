@@ -21,6 +21,7 @@ int main(int argc, char* argv[])
         if (!fs)
         {
             std::cout << "Returning -1" << "\r\n";
+            fs.close();
             return -1;
         }
         fs.close();
