@@ -10,6 +10,7 @@ namespace OnAccessScanDemo
     class Program
     {
         static int timeToWaitMs = 500;
+        static int iniTimeToWaitMs = 2000;
         static bool cleanupTempFiles = false;
         static string basePath = @"c:\sandboxMcAfee";
         static int largeFileThresholdMb = 100;
@@ -22,28 +23,33 @@ namespace OnAccessScanDemo
             Stopwatch sw = new Stopwatch();
             sw.Start();
             Console.WriteLine($"--- Writing small EICAR file ---");
-            var eicarFileName = WriteEicarFile(false).GetAwaiter().GetResult();
+            var eicarFileName = WriteEicarFile(".com").GetAwaiter().GetResult();
             Console.WriteLine($"Sleeping {timeToWaitMs}ms");
             System.Threading.Thread.Sleep(timeToWaitMs);
             var isEicarVirusDetected = IsVirusDetectedOrRemoved(eicarFileName).GetAwaiter().GetResult();
             sw.Stop();
-            WriteTestResult(isEicarVirusDetected, "Virus detected in small EICAR file", "Small EICAR file read");
-            Console.WriteLine($"Time to detect virus in small EICAR file: {sw.ElapsedMilliseconds} milliseconds");
+            WriteTestResult(isEicarVirusDetected, "Detect virus detected in small EICAR file");
+            Console.WriteLine($"Time taken: {sw.ElapsedMilliseconds}ms");
             Console.WriteLine();
 
-            Console.WriteLine($"--- Writing large EICAR file ---");
-            var largeEicarFileName = WriteEicarFile(true).GetAwaiter().GetResult();
-            System.Threading.Thread.Sleep(timeToWaitMs);
-            var isLargeEicarVirusDetected = IsVirusDetectedOrRemoved(eicarFileName).GetAwaiter().GetResult();
+            sw.Reset();
+            sw.Start();
+            Console.WriteLine($"--- Writing small EICAR file with INI extension ---");
+            var logEicarFileName = WriteEicarFile(".ini").GetAwaiter().GetResult();
+            Console.WriteLine($"Sleeping {iniTimeToWaitMs}ms");
+            System.Threading.Thread.Sleep(iniTimeToWaitMs);
+            var isLogEicarVirusDetected = IsVirusDetectedOrRemoved(logEicarFileName).GetAwaiter().GetResult();
             sw.Stop();
-            WriteTestResult(isLargeEicarVirusDetected, "Virus detected in large EICAR file", "Large EICAR file read");
-            Console.WriteLine($"Time to detect virus in large EICAR file: {sw.ElapsedMilliseconds} milliseconds");
+            WriteTestResult(isLogEicarVirusDetected, "Detect virus in small EICAR file with INI extension");
+            Console.WriteLine($"Time taken: {sw.ElapsedMilliseconds}ms");
             Console.WriteLine();
 
             Console.WriteLine($"--- Writing plain text innocent file ---");
             var innocentFileName = WriteInnocentFile().GetAwaiter().GetResult();
+            Console.WriteLine($"Sleeping {iniTimeToWaitMs}ms");
+            System.Threading.Thread.Sleep(iniTimeToWaitMs);
             var isInnocentVirusDetected = IsVirusDetectedOrRemoved(innocentFileName).GetAwaiter().GetResult();
-            WriteTestResult(!isInnocentVirusDetected, "Innocent file read", "Virus detected in innocent file");
+            WriteTestResult(!isInnocentVirusDetected, "Read innocent file read");
 
             Console.WriteLine();
 
@@ -52,7 +58,7 @@ namespace OnAccessScanDemo
             Console.WriteLine($"Sleeping {timeToWaitMs}ms");
             System.Threading.Thread.Sleep(timeToWaitMs);
             var isZippedEicarDetected = IsVirusDetectedOrRemovedInZip(zippedEicarFile).GetAwaiter().GetResult();
-            WriteTestResult(isZippedEicarDetected, "Virus detected in small zip file", "Virus not detected in small zip file");
+            WriteTestResult(isZippedEicarDetected, "Detect virus in small zip file");
 
             Console.WriteLine();
 
@@ -61,7 +67,7 @@ namespace OnAccessScanDemo
             Console.WriteLine($"Sleeping {timeToWaitMs}ms");
             System.Threading.Thread.Sleep(timeToWaitMs); 
             var isLargeZippedEicarDetected = IsVirusDetectedOrRemovedInZip(largeZippedEicarFile).GetAwaiter().GetResult();
-            WriteTestResult(isLargeZippedEicarDetected, "Virus detected in large zip file", "Virus not detected in large zip file");
+            WriteTestResult(isLargeZippedEicarDetected, "Detect virus in large zip file");
 
 
             if (cleanupTempFiles)
@@ -72,11 +78,11 @@ namespace OnAccessScanDemo
             }
         }
 
-        private static void WriteTestResult(bool isSuccess, string successMessage, string failMessage)
+        private static void WriteTestResult(bool isSuccess, string testName)
         {
             if(isSuccess)
             {
-                Console.WriteLine($"SUCCESS: {successMessage}");
+                Console.WriteLine($"PASS: {testName}");
             }
             else
             {
@@ -84,7 +90,7 @@ namespace OnAccessScanDemo
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.Write("FAIL: ");
                 Console.ResetColor();
-                Console.WriteLine($"{failMessage}");
+                Console.WriteLine($"{testName}");
                 
             }
         }
@@ -117,13 +123,13 @@ namespace OnAccessScanDemo
         private static async Task<string> WriteInnocentFile()
         {
             string eicarFileContent = @"I AM AN INNOCENT FILE";
-            return await WriteFileContents(eicarFileContent, false);
+            return await WriteFileContents(eicarFileContent, ".txt");
         }
-        private static async Task<string> WriteEicarFile(bool writeLargeEicar)
+        private static async Task<string> WriteEicarFile(string fileExtension)
         {
             Random randomBytes = new Random();
             string eicarFileContent = @"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" + randomBytes.Next().ToString();
-            return await WriteFileContents(eicarFileContent, writeLargeEicar);
+            return await WriteFileContents(eicarFileContent, fileExtension);
         }
         private static async Task<string> WriteZippedEicarFile(bool largeZip)
         {
@@ -132,28 +138,18 @@ namespace OnAccessScanDemo
             byte[] bytesToWrite = System.Text.Encoding.ASCII.GetBytes(eicarFileContent);
             return await WriteZipFileContents(bytesToWrite, "embeddedEicar.com", largeZip);
         }
-        private static async Task<string> WriteFileContents(string dataToWrite, bool appendLargeBytes)
+        private static async Task<string> WriteFileContents(string dataToWrite, string fileExtension)
         {
             byte[] bytesToWrite = System.Text.Encoding.ASCII.GetBytes(dataToWrite);
-            return await WriteFileContents(bytesToWrite, appendLargeBytes);
+            return await WriteFileContents(bytesToWrite, fileExtension);
         }
-        private static async Task<string> WriteFileContents(byte[] dataToWrite, bool appendLargeBytes)
+        private static async Task<string> WriteFileContents(byte[] dataToWrite, string fileExtension)
         {
-            string tempFileName = GetTestFileName(".com");
+            string tempFileName = GetTestFileName(fileExtension);
             using (FileStream writeFileContents = File.Open(tempFileName, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read))
             {
                 await writeFileContents.WriteAsync(dataToWrite, 0, dataToWrite.Length);
-                if(appendLargeBytes)
-                {
-                    Random randomBytes = new Random();
-                    byte[] randomBuffer = new byte[1000000];
-
-                    for (int i = 0; i < largeFileThresholdMb; i++)
-                    {
-                        randomBytes.NextBytes(randomBuffer);
-                        await writeFileContents.WriteAsync(randomBuffer, 0, randomBuffer.Length);
-                    }
-                }
+                await writeFileContents.FlushAsync();
                 writeFileContents.Close();
             }
             return tempFileName;
