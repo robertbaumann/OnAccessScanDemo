@@ -49,7 +49,7 @@ namespace OnAccessScanDemo
             Console.WriteLine($"Sleeping {iniTimeToWaitMs}ms");
             System.Threading.Thread.Sleep(iniTimeToWaitMs);
             var isInnocentVirusDetected = IsVirusDetectedOrRemoved(innocentFileName).GetAwaiter().GetResult();
-            WriteTestResult(!isInnocentVirusDetected, "Read innocent file read");
+            WriteTestResult(!isInnocentVirusDetected, "Read innocent file");
 
             Console.WriteLine();
 
