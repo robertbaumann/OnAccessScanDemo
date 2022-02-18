@@ -1,8 +1,12 @@
 // ReadOneByteUtility.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#include <iostream>
+#include <chrono>
 #include <fstream>
+#include <iostream>
+#include <thread>
+
+const int delayBetweenMs = 500;
 
 int main(int argc, char* argv[])
 {
@@ -11,29 +15,40 @@ int main(int argc, char* argv[])
         std::cout << "Usage: " << argv[0] << " <filename to read>";
     }
 
+    std::fstream fs;
+    int retval = -1;
+
     try
     {
-        std::fstream fs;
-        fs.open(argv[1], std::fstream::in, std::fstream::binary);
-
         char firstByte[2];
+
+        fs.open(argv[1], std::fstream::in, std::fstream::binary);
         fs.read(firstByte, 1);
-        if (!fs)
-        {
-            std::cout << "Returning -1" << "\r\n";
-            fs.close();
-            return -1;
-        }
+        retval = (fs || fs.eof()) ? 0 : -1;
         fs.close();
-        std::cout << "Returning 0" << "\r\n";
-        return 0;
+
+        // If file was readable once, then try again after brief delay.
+        // This is to mitigate the 0.001 failure rate
+        // on a single read of Eicar file.
+        if (retval == 0)
+        {
+            std::chrono::milliseconds * delayMs = new std::chrono::milliseconds(delayBetweenMs);
+            std::this_thread::sleep_for(*delayMs);
+
+            fs.open(argv[1], std::fstream::in, std::fstream::binary);
+            fs.read(firstByte, 1);
+            retval = (fs || fs.eof()) ? 0 : -1;
+            fs.close();
+        }
     }
     catch(...)
     {
-        std::cout << "Returning -1" << "\r\n";
-        return -1;
+        retval = -1;
     }
-}
+
+    std::cout << "Returning " << retval << "\r\n";
+    return retval;
+    }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
 // Debug program: F5 or Debug > Start Debugging menu
